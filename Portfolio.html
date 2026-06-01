@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaël De Oliveira Herman — Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #f5f0e8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Jost', sans-serif;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: default;
+  }
+
+  #center-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #center-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    color: #6a5648;
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+  }
+
+  #hint {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #8a7a6a;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 300;
+    animation: pulse 2.8s ease-in-out infinite;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  #back-btn {
+    position: absolute;
+    top: 34px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #7a6a8a;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 300;
+    cursor: pointer;
+    background: none;
+    border: 1px solid #c4b8d0;
+    padding: 9px 24px;
+    border-radius: 30px;
+    display: none;
+    transition: background 0.25s, color 0.25s;
+    font-family: 'Jost', sans-serif;
+  }
+
+  #back-btn:hover {
+    background: #ede5f4;
+    color: #4a3a5a;
+  }
+
+  /* ── Content view layer ── */
+  #content-view {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: none;
+    opacity: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: opacity 0.65s ease;
+  }
+  #content-view.visible { display: block; opacity: 1; }
+  #content-view.theme-dark  { background: #2e2519; }
+  #content-view.theme-light { background: #f5f0e8; }
+
+  /* ── DARK theme ── */
+  .page-dark {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% -10%, #4a3d2c 0%, #3a2f22 45%, #2e2519 100%);
+    color: #f0e6d4;
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .page-dark.in { opacity: 1; }
+  .page-dark::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #a9c4d6 25%, #a9c4d6 75%, transparent);
+    opacity: 0.6;
+    z-index: 45;
+  }
+
+  /* ── LIGHT theme ── */
+  .page-light {
+    min-height: 100vh;
+    background: #f5f0e8;
+    color: #4a3a2a;
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+  .page-light.in { opacity: 1; }
+  .page-light::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #a9c4d6 25%, #a9c4d6 75%, transparent);
+    opacity: 0.5;
+    z-index: 45;
+  }
+
+  /* ── Shared inner layout ── */
+  .page-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 130px 48px 90px;
+  }
+  .page-inner-wide {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 130px 48px 90px;
+  }
+
+  /* ── Dark card ── */
+  .page-card {
+    background: #463827;
+    border: 1px solid #5a4a35;
+    border-radius: 22px;
+    padding: 52px 56px 56px;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.28);
+    transform: translateY(40px);
+    opacity: 0;
+    transition: transform 0.7s cubic-bezier(0.22,1,0.36,1), opacity 0.7s ease;
+  }
+  .page-card.in { transform: translateY(0); opacity: 1; }
+
+  /* ── Light card ── */
+  .page-card-light {
+    background: #ede5d8;
+    border: 1px solid #d8ccbc;
+    border-radius: 22px;
+    padding: 52px 56px 56px;
+    box-shadow: 0 12px 40px rgba(100,80,50,0.10);
+    transform: translateY(40px);
+    opacity: 0;
+    transition: transform 0.7s cubic-bezier(0.22,1,0.36,1), opacity 0.7s ease;
+  }
+  .page-card-light.in { transform: translateY(0); opacity: 1; }
+
+  .page-eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #a9c4d6;
+    font-weight: 400;
+    margin-bottom: 16px;
+  }
+
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 56px;
+    font-weight: 400;
+    line-height: 1.05;
+    color: #f7efe0;
+    margin-bottom: 34px;
+    letter-spacing: 0.01em;
+  }
+
+  .page-section-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #9fb0bc;
+    font-weight: 400;
+    margin: 44px 0 18px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #5a4a35;
+  }
+
+  .page-statement {
+    font-size: 19px;
+    line-height: 1.75;
+    font-weight: 300;
+    color: #e6dcc8;
+  }
+  .page-statement.placeholder {
+    color: #a08f76;
+    font-style: italic;
+  }
+
+  .page-statement p { margin-bottom: 22px; }
+
+  /* inline cross-links */
+  .xlink {
+    color: #a9c4d6;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(169,196,214,0.4);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .xlink:hover {
+    color: #c8dceb;
+    border-color: #c8dceb;
+  }
+
+  /* skills / tools chips */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .chip {
+    font-size: 14px;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    color: #f0e6d4;
+    background: #51422f;
+    border: 1px solid #63513a;
+    padding: 9px 18px;
+    border-radius: 8px;
+  }
+  .chip .lvl { color: #9fb0bc; font-size: 12px; margin-left: 8px; }
+
+  /* ── Light theme typography ── */
+  .page-light .page-eyebrow  { color: #8a9aa6; }
+  .page-light .page-title    { color: #3a2a1a; }
+  .page-light .page-section-label {
+    color: #8a7a6a;
+    border-bottom-color: #d8ccbc;
+  }
+  .page-light .page-statement { color: #5a4a3a; }
+  .page-light .page-statement.placeholder { color: #b0a090; }
+  .page-light .xlink { color: #7a9aaa; border-bottom-color: rgba(122,154,170,0.4); }
+  .page-light .xlink:hover { color: #4a7a8a; border-bottom-color: #4a7a8a; }
+
+  /* ── Shared typography (dark) ── */
+  .page-eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #a9c4d6;
+    font-weight: 400;
+    margin-bottom: 16px;
+  }
+  .page-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 56px;
+    font-weight: 400;
+    line-height: 1.05;
+    color: #f7efe0;
+    margin-bottom: 34px;
+    letter-spacing: 0.01em;
+  }
+  .page-section-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #9fb0bc;
+    font-weight: 400;
+    margin: 44px 0 18px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #5a4a35;
+  }
+  .page-statement {
+    font-size: 18px;
+    line-height: 1.75;
+    font-weight: 300;
+    color: #e6dcc8;
+  }
+  .page-statement.placeholder { color: #a08f76; font-style: italic; }
+  .page-statement p { margin-bottom: 22px; }
+  .xlink {
+    color: #a9c4d6;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(169,196,214,0.4);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .xlink:hover { color: #c8dceb; border-bottom-color: #c8dceb; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .chip {
+    font-size: 14px; font-weight: 300; letter-spacing: 0.04em;
+    color: #f0e6d4; background: #51422f; border: 1px solid #63513a;
+    padding: 9px 18px; border-radius: 8px;
+  }
+  .chip .lvl { color: #9fb0bc; font-size: 12px; margin-left: 8px; }
+
+  /* ── Info boxes (semesters, years, etc.) ── */
+  .box-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 10px;
+  }
+  @media (max-width: 720px) {
+    .box-grid { grid-template-columns: 1fr; }
+  }
+  .info-box {
+    background: #f3ece1;
+    border: 1px solid #d8ccbc;
+    border-radius: 14px;
+    padding: 22px 24px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+  .info-box:hover {
+    border-color: #a9c4d6;
+    box-shadow: 0 8px 24px rgba(100,80,50,0.10);
+    transform: translateY(-2px);
+  }
+  .info-box .ib-head {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8a9aa6;
+    font-weight: 500;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0d4c4;
+  }
+  .info-box ul { list-style: none; margin: 0; padding: 0; }
+  .info-box li {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: #5a4a3a;
+    font-weight: 300;
+    padding-left: 18px;
+    position: relative;
+    margin-bottom: 10px;
+  }
+  .info-box li:last-child { margin-bottom: 0; }
+  .info-box li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 9px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #a9c4d6;
+  }
+  .info-box li .ib-link {
+    color: #7a9aaa;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(122,154,170,0.4);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .info-box li .ib-link:hover { color: #4a7a8a; border-bottom-color: #4a7a8a; }
+
+  /* ── Horizontal Chronogram ── */
+  .chrono-wrap {
+    position: relative;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 30px 0 40px;
+    cursor: grab;
+    user-select: none;
+  }
+  .chrono-wrap:active { cursor: grabbing; }
+  .chrono-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: max-content;
+    padding: 0 40px;
+    height: 460px;
+  }
+  /* the baseline */
+  .chrono-line {
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #a9c4d6 4%, #a9c4d6 96%, transparent);
+    transform: translateY(-50%);
+    z-index: 0;
+  }
+  .chrono-entry {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+    margin: 0 26px;
+  }
+  /* alternating above/below baseline */
+  .chrono-entry.above { flex-direction: column-reverse; padding-bottom: 60px; }
+  .chrono-entry.below { flex-direction: column; padding-top: 60px; }
+
+  /* the dot */
+  .chrono-dot {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: #a9c4d6;
+    border: 3px solid #f5f0e8;
+    flex-shrink: 0;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .chrono-entry:hover .chrono-dot {
+    transform: scale(1.4);
+    background: #7aaa98;
+  }
+
+  /* connector between dot and card */
+  .chrono-connector {
+    width: 2px;
+    height: 38px;
+    background: #c4b8a8;
+    flex-shrink: 0;
+  }
+
+  /* the entry card — date, place, school, AND detail all always visible */
+  .chrono-label {
+    background: #ede5d8;
+    border: 1px solid #d0c4b4;
+    border-radius: 12px;
+    padding: 14px 18px;
+    text-align: center;
+    width: 210px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+  .chrono-entry:hover .chrono-label {
+    border-color: #a9c4d6;
+    box-shadow: 0 6px 20px rgba(100,80,50,0.13);
+    transform: translateY(-2px);
+  }
+  .chrono-label .cl-date {
+    font-size: 11px;
+    color: #9a8a7a;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 400;
+    margin-bottom: 5px;
+  }
+  .chrono-label .cl-place {
+    font-size: 16px;
+    color: #3a2a1a;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .chrono-label .cl-school {
+    font-size: 12px;
+    color: #7a6a5a;
+    font-weight: 400;
+    margin-top: 3px;
+    line-height: 1.3;
+  }
+  .chrono-label .cl-detail {
+    font-size: 12.5px;
+    color: #6a5a4a;
+    font-weight: 300;
+    line-height: 1.55;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #dcd0c0;
+    text-align: left;
+  }
+
+
+  #mini-wheel {
+    position: fixed;
+    top: 26px;
+    left: 16px;
+    z-index: 60;
+    cursor: pointer;
+    display: none;
+    width: 110px;
+    text-align: center;
+    transform: translateY(-150px);
+    transition: transform 0.55s cubic-bezier(0.22,1,0.36,1);
+  }
+  #mini-wheel * { cursor: pointer; }
+  #mini-wheel.in { transform: translateY(0); }
+  #mini-wheel canvas { display: block; margin: 0 auto; }
+  #mini-wheel .mw-label { display: none; }
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="wheel"></canvas>
+  <div id="center-label">
+    <div id="center-text">What would you like to know?</div>
+  </div>
+  <div id="hint">Click a section to explore</div>
+  <button id="back-btn">&larr; Back</button>
+</div>
+
+<div id="mini-wheel">
+  <canvas id="mini-canvas" width="84" height="84"></canvas>
+  <div class="mw-label">Home</div>
+</div>
+<div id="content-view"></div>
+
+<script>
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+
+const SIZE = Math.min(window.innerWidth, window.innerHeight) * 0.86;
+const DPR = window.devicePixelRatio || 1;
+canvas.width = SIZE * DPR;
+canvas.height = SIZE * DPR;
+canvas.style.width = SIZE + 'px';
+canvas.style.height = SIZE + 'px';
+ctx.scale(DPR, DPR);
+const cx = SIZE / 2, cy = SIZE / 2;
+
+const R_INNER   = SIZE * 0.155;
+const R_OUTER   = SIZE * 0.375;
+const R_ARC     = SIZE * 0.445;
+const TOOTH_H   = SIZE * 0.042;
+const N_TEETH   = 32;
+
+const BLUE = '#a9c4d6';
+const BLUE_SOFT = '#bcd2e0';
+
+const PALETTE = {
+  overview:  { fill:'#d4c5b0', hover:'#c9b89f', text:'#4a3520' },
+  education: { fill:'#cbbdd8', hover:'#bfaecf', text:'#3a2550' },
+  projects:  { fill:'#c6baa8', hover:'#baac98', text:'#3a2810' },
+  skills:    { fill:'#b4c9be', hover:'#a3bdb0', text:'#183025' },
+  interests: { fill:'#d8bdc2', hover:'#ccb0b6', text:'#4a2030' },
+};
+
+const SUB_PALETTE = [
+  { fill:'#ddd0be', hover:'#d0c1ac', text:'#4a3520' },
+  { fill:'#d2c4d4', hover:'#c5b5c8', text:'#3a2550' },
+  { fill:'#cec3b2', hover:'#c2b5a2', text:'#3a2810' },
+  { fill:'#bdd0c8', hover:'#aec4ba', text:'#183025' },
+  { fill:'#ddc6ca', hover:'#d1b8be', text:'#4a2030' },
+  { fill:'#c8d4bc', hover:'#bbc8ae', text:'#253018' },
+  { fill:'#d4ccbe', hover:'#c8bfb0', text:'#3a3020' },
+];
+
+const ARC_COLORS = {
+  personal:  '#b8a0cc',
+  school:    '#b89060',
+  technical: '#7aaa98',
+  languages: '#c89098',
+};
+
+const ARC_LABELS = {
+  personal: 'Personal',
+  school: 'School',
+  technical: 'Technical',
+  languages: 'Languages',
+};
+
+const TOP = [
+  { id:'overview',  label:'Overview' },
+  { id:'education', label:'Education' },
+  { id:'projects',  label:'Projects' },
+  { id:'skills',    label:'Skills' },
+  { id:'interests', label:'Interests' },
+];
+
+const SUBS = {
+  education: [
+    { id:'high',   label:'High\nSchool' },
+    { id:'uni',    label:'University' },
+  ],
+  projects: [
+    { id:'puzzle',    label:'Puzzle\nGame',         category:'personal' },
+    { id:'japanese',  label:'Japanese\nSelf-Study',  category:'personal' },
+    { id:'vhdl',      label:'VHDL\nProject',         category:'school'   },
+    { id:'sumo',      label:'Sumo\nRobot',           category:'school'   },
+  ],
+  skills: [
+    { id:'english',     label:'English',     category:'languages' },
+    { id:'french',      label:'French',      category:'languages' },
+    { id:'portuguese',  label:'Portuguese',  category:'languages' },
+    { id:'japanese_l',  label:'Japanese',    category:'languages' },
+    { id:'spanish',     label:'Spanish',     category:'languages' },
+  ],
+  interests: [
+    { id:'guitar',  label:'Guitar\n& Piano' },
+    { id:'boards',  label:'Board\nGames' },
+    { id:'reading', label:'Reading' },
+    { id:'prog',    label:'Programming &\nCPU Architecture' },
+  ],
+};
+
+const TOP_LABEL = { education:'Education', projects:'Projects', skills:'Skills', interests:'Interests', overview:'Overview' };
+
+let level    = 'top';
+let parent   = null;
+let rotation = 0;
+let hovered  = -1;
+let animating = false;
+let anim = null;
+
+function getSections() {
+  return level === 'top' ? TOP : (SUBS[parent] || []);
+}
+
+function drawCogRing(outerR) {
+  const toothAngle = (Math.PI * 2) / N_TEETH;
+  const innerR = outerR - TOOTH_H;
+  ctx.beginPath();
+  for (let i = 0; i < N_TEETH; i++) {
+    const a0 = i * toothAngle - Math.PI / 2;
+    const a1 = a0 + toothAngle * 0.38;
+    const a2 = a0 + toothAngle * 0.62;
+    const a3 = a0 + toothAngle;
+    if (i === 0) ctx.moveTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
+    else ctx.lineTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
+    ctx.lineTo(cx + outerR * Math.cos(a1), cy + outerR * Math.sin(a1));
+    ctx.lineTo(cx + outerR * Math.cos(a2), cy + outerR * Math.sin(a2));
+    ctx.lineTo(cx + innerR * Math.cos(a3), cy + innerR * Math.sin(a3));
+  }
+  ctx.closePath();
+}
+
+function drawSliceSet(sections, alpha, scale, useTopColors) {
+  if (sections.length === 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  if (scale !== 1) {
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
+
+  const n = sections.length;
+  const sliceA = (Math.PI * 2) / n;
+  const offset = -Math.PI / 2 + rotation;
+
+  drawCogRing(R_OUTER + TOOTH_H);
+  ctx.fillStyle = 'rgba(160,145,125,0.16)';
+  ctx.fill();
+
+  sections.forEach((sec, i) => {
+    const a0 = offset + i * sliceA;
+    const a1 = offset + (i + 1) * sliceA;
+    const col = useTopColors
+      ? (PALETTE[sec.id] || SUB_PALETTE[i % SUB_PALETTE.length])
+      : SUB_PALETTE[i % SUB_PALETTE.length];
+    const isHov = i === hovered && !animating;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_OUTER, a0, a1);
+    ctx.arc(cx, cy, R_INNER, a1, a0, true);
+    ctx.closePath();
+    ctx.fillStyle = isHov ? col.hover : col.fill;
+    ctx.fill();
+  });
+
+  ctx.strokeStyle = BLUE;
+  ctx.lineWidth = SIZE * 0.0045;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a = offset + i * sliceA;
+    ctx.beginPath();
+    ctx.moveTo(cx + R_INNER * Math.cos(a), cy + R_INNER * Math.sin(a));
+    ctx.lineTo(cx + R_OUTER * Math.cos(a), cy + R_OUTER * Math.sin(a));
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = BLUE_SOFT;
+  ctx.lineWidth = SIZE * 0.0035;
+  ctx.beginPath(); ctx.arc(cx, cy, R_INNER, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R_OUTER, 0, Math.PI * 2); ctx.stroke();
+
+  sections.forEach((sec, i) => {
+    const mid = offset + (i + 0.5) * sliceA;
+    const col = useTopColors
+      ? (PALETTE[sec.id] || SUB_PALETTE[i % SUB_PALETTE.length])
+      : SUB_PALETTE[i % SUB_PALETTE.length];
+    const labelR = (R_INNER + R_OUTER) * 0.525;
+    const lx = cx + labelR * Math.cos(mid);
+    const ly = cy + labelR * Math.sin(mid);
+    const lines = sec.label.split('\n');
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    let rot = mid + Math.PI / 2;
+    if (mid > 0 && mid < Math.PI) rot += Math.PI;
+    ctx.rotate(rot);
+    const fs = Math.min(SIZE * 0.027, SIZE * 0.9 / (n * 3));
+    ctx.font = `400 ${fs}px 'Jost', sans-serif`;
+    ctx.fillStyle = col.text;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    lines.forEach((line, li) => {
+      ctx.fillText(line, 0, (li - (lines.length - 1) / 2) * fs * 1.4);
+    });
+    ctx.restore();
+  });
+
+  if (!useTopColors && alpha > 0.55) {
+    const cats = {};
+    sections.forEach((s, i) => {
+      if (!s.category) return;
+      (cats[s.category] = cats[s.category] || []).push(i);
+    });
+
+    Object.entries(cats).forEach(([cat, idxs]) => {
+      const first = idxs[0], last = idxs[idxs.length - 1];
+      const pad = sliceA * 0.06;
+      const arcA0 = offset + first * sliceA + pad;
+      const arcA1 = offset + (last + 1) * sliceA - pad;
+      const midA  = (arcA0 + arcA1) / 2;
+      const col   = ARC_COLORS[cat];
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, R_ARC, arcA0, arcA1);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = SIZE * 0.006;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      [arcA0, arcA1].forEach(a => {
+        const tk = SIZE * 0.011;
+        ctx.beginPath();
+        ctx.moveTo(cx + (R_ARC) * Math.cos(a), cy + (R_ARC) * Math.sin(a));
+        ctx.lineTo(cx + (R_ARC - tk) * Math.cos(a), cy + (R_ARC - tk) * Math.sin(a));
+        ctx.strokeStyle = col;
+        ctx.lineWidth = SIZE * 0.006;
+        ctx.stroke();
+      });
+
+      drawTextOnArc(ARC_LABELS[cat].toUpperCase(), midA, R_ARC + SIZE * 0.034, col, SIZE * 0.0185);
+    });
+  }
+
+  ctx.restore();
+}
+
+function drawTextOnArc(text, midAngle, radius, color, fontSize) {
+  ctx.save();
+  ctx.font = `400 ${fontSize}px 'Jost', sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const flip = (midAngle > 0 && midAngle < Math.PI);
+  const letterSpacing = fontSize * 0.16;
+  const widths = [...text].map(ch => ctx.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b + letterSpacing, 0) - letterSpacing;
+  const totalAngle = total / radius;
+
+  let a = midAngle - (flip ? -totalAngle/2 : totalAngle/2);
+  const dir = flip ? -1 : 1;
+
+  [...text].forEach((ch, i) => {
+    const w = widths[i];
+    const charAngle = (w + letterSpacing) / radius;
+    const drawA = a + dir * charAngle / 2;
+    const x = cx + radius * Math.cos(drawA);
+    const y = cy + radius * Math.sin(drawA);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(drawA + (flip ? -Math.PI/2 : Math.PI/2));
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+    a += dir * charAngle;
+  });
+  ctx.restore();
+}
+
+function render(ts) {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+
+  if (anim) {
+    const t = Math.min(1, (ts - anim.startT) / anim.dur);
+    const e = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    drawSliceSet(anim.fromSecs, 1 - e, 1 - e * 0.12, anim.fromTop);
+    drawSliceSet(anim.toSecs, e, 0.88 + e * 0.12, anim.toTop);
+    if (t >= 1) { anim = null; animating = false; }
+  } else {
+    drawSliceSet(getSections(), 1, 1, level === 'top');
+  }
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+function angleToIndex(mx, my) {
+  const dist = Math.sqrt(mx*mx + my*my);
+  if (dist < R_INNER || dist > R_OUTER) return -1;
+  const sections = getSections();
+  const n = sections.length;
+  const sliceA = (Math.PI * 2) / n;
+  const offset = -Math.PI / 2 + rotation;
+  let angle = Math.atan2(my, mx) - offset;
+  while (angle < 0) angle += Math.PI * 2;
+  while (angle >= Math.PI * 2) angle -= Math.PI * 2;
+  return Math.floor(angle / sliceA);
+}
+
+canvas.addEventListener('mousemove', e => {
+  if (animating) return;
+  const r = canvas.getBoundingClientRect();
+  const idx = angleToIndex(e.clientX - r.left - cx, e.clientY - r.top - cy);
+  hovered = idx;
+  canvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
+});
+
+canvas.addEventListener('mouseleave', () => { hovered = -1; });
+
+// ════════════════════════════════════════════════════════════════════════════
+//  CONTENT VIEW SYSTEM (single-page app)
+// ════════════════════════════════════════════════════════════════════════════
+
+const contentView = document.getElementById('content-view');
+const miniWheel = document.getElementById('mini-wheel');
+const appEl = document.getElementById('app');
+let currentPage = null;
+let inPage = false;
+
+// Page content definitions
+const PAGES = {
+
+  // ── Overview (light theme) ──────────────────────────────────────────────
+  overview: {
+    eyebrow: 'Overview', title: 'Gaël De Oliveira Herman',
+    theme: 'light', wide: true,
+    body: () => `
+      <div class="page-statement">
+        <p>I am currently an EEIC (Electrical Engineering and Industrial Computing)
+        student in my second year at the University of Bordeaux.</p>
+      </div>
+      <div class="page-section-label">Timeline</div>
+      <div class="chrono-wrap" id="chrono-wrap">
+        <div class="chrono-track" id="chrono-track">
+          <div class="chrono-line"></div>
+          ${CHRONO_ENTRIES.map((e,i) => `
+          <div class="chrono-entry ${i%2===0?'above':'below'}">
+            <div class="chrono-label">
+              <div class="cl-date">${e.date}</div>
+              <div class="cl-place">${e.place}</div>
+              ${e.school ? `<div class="cl-school">${e.school}</div>` : ''}
+              ${e.detail ? `<div class="cl-detail">${e.detail}</div>` : ''}
+            </div>
+            <div class="chrono-connector"></div>
+            <div class="chrono-dot"></div>
+          </div>`).join('')}
+        </div>
+      </div>`,
+    onMount: initChrono,
+  },
+
+  // ── Programming & CPU Architecture (dark) ──────────────────────────────
+  prog: {
+    eyebrow: 'Interests', title: 'Programming & CPU Architecture',
+    theme: 'dark',
+    body: () => `
+      <div class="page-section-label">Projects</div>
+      <div class="page-statement">
+        <p>My projects involving programming are <span class="xlink" data-action="page" data-page="sumo">Sumo Robot</span>, and <span class="xlink" data-action="page" data-page="puzzle">Puzzle Game</span>.</p>
+      </div>
+      <div class="page-section-label">What makes me tick</div>
+      <div class="page-statement">
+        <p>The satisfaction of seeing a system work the way I wanted. As a big fan of games involving both puzzling and finding creative solutions to problems, the fields of CPU architecture and programming are my dream playground.</p>
+      </div>
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>I started programming as a middle schooler, when I asked for an Arduino starter kit for my birthday. After that, I started looking up tutorials on how to program in python. As a high schooler, I discovered CPU architecture as a field via Turing Complete, an educational CPU architecture puzzle game, and became deeply interested in how the basic building blocks of a computer lead to higher-order functionality. After finishing the game, I decided to improve my programming skills by playing the programming MMO colony management game called "Screeps". The GitHub repository for what I produced can be found <a class="xlink" href="https://github.com/DeOliveiraHermanGael/screeps-code-gael" target="_blank">here</a>. Since then, I have used Python, Arduino, and C for schoolwork on a regular basis. In order to prepare for my 4th semester internship in Japan, I learned VHDL with Vivado in the context of a <span class="xlink" data-action="page" data-page="vhdl">tutored project</span>.</p>
+      </div>
+      <div class="page-section-label">Languages &amp; Tools</div>
+      <div class="chip-row">
+        <span class="chip">Python <span class="lvl">beginner</span></span>
+        <span class="chip">Arduino / Arduino IDE <span class="lvl">intermediate</span></span>
+        <span class="chip">C <span class="lvl">beginner</span></span>
+        <span class="chip">VHDL <span class="lvl">beginner</span></span>
+        <span class="chip">Vivado <span class="lvl">beginner</span></span>
+        <span class="chip">Visual Studio Code <span class="lvl">beginner</span></span>
+      </div>`,
+  },
+
+  // ── Puzzle Game (dark) ──────────────────────────────────────────────────
+  puzzle: {
+    eyebrow: 'Projects', title: 'Puzzle Game',
+    theme: 'dark',
+    body: () => `
+      <div class="page-section-label">Inspiration and concept</div>
+      <div class="page-statement">
+        <p>I am extremely curious about self-modifying programs: a type of program that modifies its own instructions while running. Multiple sources have confirmed me that modern architectures strongly discourage such practices. However, with this puzzle game, I wish to challenge myself and other users to think of situations and architectures where this style of programming can be used, regardless of real world applicability, in a fun way!</p>
+      </div>
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>At the end of my first month of my internship in Japan, there was a festival in the main campus of the University of Tokyo involving all the student clubs, including the Microcomputers circle, of which I was part. Our activity consisted, for each of the members who wanted to do so, in creating their own video game. The games would be loaded into several discs, which would be sold to customers passing by our stand. I decided to create a programming puzzle game, which is to say, a puzzle game with problems that the user has to solve by programming.</p>
+        <p>For some time I had been toying with the idea of self-modifying programs. Since I had no idea how to test my ideas in real life, I decided to use the festival as an excuse to create a framework that would not only allow me to do that, but make it fun, and allow others to benefit! At the time I'm writing this, the game is playable with a few minor bugs, complete with a level editor and a saving mechanism!</p>
+      </div>
+      <div class="page-statement" style="margin-top:16px;">
+        <p>Connects back to <span class="xlink" data-action="page" data-page="prog">Programming &amp; CPU Architecture</span>.</p>
+      </div>`,
+  },
+
+  // ── University (light) ──────────────────────────────────────────────────
+  uni: {
+    eyebrow: 'Education', title: 'University', theme: 'light', wide: true,
+    body: () => `
+      <div class="page-statement">
+        <p>I am currently an EEIC (Electrical Engineering and Industrial Computing) bachelor's student in my second year, in the University of Bordeaux, at the university institute of technology (UIT, or IUT in French) in Gradignan. A few highlights from each semester:</p>
+      </div>
+      <div class="box-grid">
+        <div class="info-box">
+          <div class="ib-head">Semester 1</div>
+          <ul>
+            <li>Start of my student life in Bordeaux! Had a hard time adapting, as one of the only students without a physics background.</li>
+            <li>Enrolled in the international option, was disappointed, so decided to audit python for AI classes instead.</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Semester 2</div>
+          <ul>
+            <li>Managed to officially enroll in the AI University Diploma.</li>
+            <li>Discovered RSK (Robot Soccer Kit).</li>
+            <li>Discovered the field of neuromorphic engineering, mentioned in passing in a lecture held by our department head.</li>
+            <li>Joined a university board games club, and am having fun there to this day.</li>
+            <li>Found a taste for molecular biology after choosing genetic modification as a subject for an english presentation.</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Semester 3</div>
+          <ul>
+            <li><span class="ib-link" data-action="page" data-page="sumo">Sumo Robot school project</span>.</li>
+            <li><span class="ib-link" data-action="page" data-page="vhdl">Learning VHDL with Vivado tutored project</span>.</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Semester 4</div>
+          <ul>
+            <li>Internship in the University of Tokyo, Institute of Industrial Science, in the Laboratory for Neuromimetic Systems.</li>
+            <li>Stepped back from the AI University Diploma program, in order to extend the internship period.</li>
+            <li><span class="ib-link" data-action="page" data-page="puzzle">Puzzle game project</span>.</li>
+          </ul>
+        </div>
+      </div>`,
+  },
+
+  // ── High School (light) ─────────────────────────────────────────────────
+  high: {
+    eyebrow: 'Education', title: 'High School', theme: 'light', wide: true,
+    body: () => `
+      <div class="page-statement">
+        <p>Lycée Saint-Just, Lyon. My options and specializations shifted between my second and third years:</p>
+      </div>
+      <div class="box-grid">
+        <div class="info-box">
+          <div class="ib-head">Second Year</div>
+          <ul>
+            <li><strong>Options:</strong> Cinema; CLIL Life &amp; Earth Sciences (English / DNL SVT); Ancient languages (Greek &amp; Latin).</li>
+            <li><strong>Specializations:</strong> Mathematics; HGGSP (History, Geography, Geopolitics &amp; Political Science); HLP (Humanities, Literature &amp; Philosophy).</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Third Year</div>
+          <ul>
+            <li><strong>Options:</strong> Replaced Cinema with Drama; CLIL Life &amp; Earth Sciences; advanced mathematics; ancient languages.</li>
+            <li><strong>Specializations:</strong> Mathematics and HGGSP.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="page-statement" style="margin-top:32px;">
+        <p>During my two last years of High school, I regularly attended the school's public speaking contest, and even participated once. Drama was extremely fun! We wrote two plays. I actively contributed to the scene writing of both plays, and was a standout actor in the end of year play.</p>
+      </div>`,
+  },
+
+  // ── Sumo Robot (light) ──────────────────────────────────────────────────
+  sumo: {
+    eyebrow: 'Projects', title: 'Sumo Robot', theme: 'light',
+    body: () => `
+      <div class="page-section-label">Goal</div>
+      <div class="page-statement">
+        <p>The project consisted in the design, manufacturing, and verifying of a sumo robot, according to a set of specifications.</p>
+      </div>
+      <div class="page-section-label">Rules</div>
+      <div class="page-statement">
+        <p>The robot navigates a "Dohyo", a round slab of wood whose interior is painted black and borders are painted white, so that the robot can sense when it is about to fall down. Its goal is to push a robot opponent outside the Dohyo.</p>
+        <p>The mechanical template was provided, and the specifications were permissive, so the heart of task consisted in determining which kind of and how many sensors the robot would possess, how they would be positioned, and how it would respond to sensor input.</p>
+      </div>
+      <div class="page-section-label">My role — Design</div>
+      <div class="page-statement">
+        <p>As I was the only team member confident in my programming skills, I was assigned the task of programming everything from start to finish. I would request or offer help and inform them regarding design decisions and necessities.</p>
+        <p>One decision I am especially proud of was my choice of connecting the contrast sensors to digital pins instead of analog ones. I experimentally checked that by connecting them to a lower voltage, their signals would be naturally interpreted as black and white by the processing unit. Another idea of mine that greatly influenced the design process was to treat each and every input according to a certain hierarchical list. Say that you've located your opponent and you know that he's currently at the other side of the dohyo, but your sensors are also telling you that you're about to fall off and lose! Would you rather chase your opponent or move away from the border first, but keep track of the last direction you sighted? Honestly, setting the order wasn't easy, but it also wasn't as important as it might seem.</p>
+      </div>
+      <div class="page-section-label">My role — Verification</div>
+      <div class="page-statement">
+        <p>After all my hard work programming the robot, what do you expect, for it to work on the first try? Of course not! I had to go through a battery of tests to find bugs in the code. Honestly, this was by far the longest and most difficult part in the whole project. I had to resort to making testbenches, where I would test the functionalities of isolated sections and try to diagnose the bugs.</p>
+      </div>
+      <div class="page-section-label">My role — Documenting</div>
+      <div class="page-statement">
+        <p>Just having a working robot and program is useless if you can't boast about it afterwards! I wrote detailed comments in the code, explaining the logic behind the solution. Also, entries for each of the specifications addressed by the work I had done.</p>
+      </div>`,
+  },
+
+  // ── VHDL Tutored Project (light) ────────────────────────────────────────
+  vhdl: {
+    eyebrow: 'Projects', title: 'VHDL Tutored Project', theme: 'light',
+    body: () => `
+      <div class="page-section-label">Goal</div>
+      <div class="page-statement">
+        <p>The tutored project consisted in several circuits I had to implement in an FPGA, using the Vivado software, by AMD.</p>
+      </div>
+      <div class="page-section-label">The project</div>
+      <div class="page-statement">
+        <p>As the first student to ever take on this option, I had a very hard time. It became both a source of extreme frustration when I was blocked, and satisfaction upon breakthroughs. The actual VHDL part was the easiest, and most intuitive, as I already had lots of experience creating logical designs thanks to Turing Complete, an educational game, and had lots of fun rediscovering the process through a scripting language. The hardest part was catching on the workflow. Few people in my department were actually versed in the process to the point where they could help a beginner. The good news is that I managed to reach the goal of finishing the assignments done to me, documented in the project conclusion: <a class="xlink" href="https://drive.google.com/drive/folders/133UhPUqjt8_zgPF4e1gs-iuaMs-AVSZ5?usp=drive_link" target="_blank">Informal Introduction to VHDL</a>, written by myself.</p>
+      </div>
+      <div class="page-section-label">Context</div>
+      <div class="page-statement">
+        <p>I had expressed my wish to do my internship at a very specific laboratory in the University of Tokyo, as a third semester student: the laboratory for neuromimetic systems. I thought it would be the perfect opportunity to both get to know an area of study that was of high interest, as well as to get the experience I lacked with the Japanese language. I was accepted on one condition: that I had to get familiar with Vivado and VHDL first. I couldn't have hoped for better. Not only was I accepted into the internship I wanted, in the country I wanted, but I also got to program FPGA, the tool in which I wanted to gain experience too? No way!</p>
+      </div>`,
+  },
+
+  // ── Guitar & Piano (light) ──────────────────────────────────────────────
+  guitar: {
+    eyebrow: 'Interests', title: 'Guitar & Piano', theme: 'light',
+    body: () => `
+      <div class="page-section-label">What makes me tick</div>
+      <div class="page-statement">
+        <p>I started the guitar as a kid because I wanted to be a rock star. I kept playing the guitar because I fell in love with classical music. In many ways, my desire to play the music that I listen is identical to my desire to understand something in a foreign language, without needing the translation. In the same way that one can only truly appreciate the unique style of a foreign author by knowing their language, I feel that one can only truly appreciate the beauty of a piece of music by playing it.</p>
+      </div>
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>When I came to Perpignan, France, I passed the entrance examination at the local Conservatory. When I moved to Lyon, I passed their entrance examination again, but had to repeat a year. A few years later, I managed to skip a year. I learned later on that repeating a year was standard when entering the Lyon conservatory, as its level is higher than the others. During my second year of high school (9th year of guitar practice), I had some trouble playing a piece, so my professor made me to listen to some parts of Chopin's Nocturnes for reference. It was love at first sight (hearing?). I who had only rarely been deliberate about listening to music until then, would listen to Chopin's piano on a very regular basis for a whole year. I just had to play the piano. My hands were itching for it. It was common for conservatory students to do intensive summer camps with their teachers, to get better at their own instrument. I was no exception. However, from that summer onwards, I used the summer camps to work on piano instead, and also took it upon myself to self-study during the year.</p>
+      </div>`,
+  },
+
+  // ── Board Games (light) ─────────────────────────────────────────────────
+  boards: {
+    eyebrow: 'Interests', title: 'Board Games', theme: 'light',
+    body: () => `
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>I've liked strategy games since I was a kid. My father taught me chess at a young age, I loved playing monopoly with friends, and enjoy playing strategy video games as well. Despite this long history, I only really got invested since living in Bordeaux. One of my housemates just happened to tell me about this board games club open to everyone that meet every week, so I went to take a look and loved it. I had made few friends outside the English club when I came to Bordeaux, so it was a perfect occasion to improve my social life, and it worked out pretty well. During my internship in the University of Tokyo, I joined the University's main board games circle, called Weeple, and even started creating my own board game system with their help!</p>
+      </div>`,
+  },
+
+  // ── Reading (light) ─────────────────────────────────────────────────────
+  reading: {
+    eyebrow: 'Interests', title: 'Reading', theme: 'light',
+    body: () => `
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>Before living in France, I would mostly read non-fiction books for children. Until then, I thought fiction was useless. My mother really wanted to get me to read a book, not just short, children's books. So she bought me the first Harry Potter book against my will, and again forced me to read the first few tens of pages against my will. Even though I hadn't wanted it, for some reason, I couldn't let it go either. I wouldn't stop reading until the latter part of middle school. My father also got me to read the kid's scientific journal "Science et vie junior". I took a break for a year or two, and since high school, it worked in phases. I turned to non-fiction, journals mostly, including the adult version of the scientific journal my father bought me. my interests expanded to history, politics, geopolitics, philosophy, mathematics, economics, and methodology. At some point I developed a passion for the warring states period in Chinese history. Although much of it was difficult to read (especially the philosophy), I grew the habit of making good use of the high school library during break periods.</p>
+      </div>
+      <div class="page-section-label">Non-fiction highlights</div>
+      <div class="page-statement">
+        <p><em>Journals:</em> Science et vie junior; Science et vie; Diplomacie; Conflits; Alternatives économiques.</p>
+        <p><em>Books:</em> "Thinking, Fast and Slow", Daniel Kahneman; "Envisioning Eternal Empire: Chinese Political Thought of the Warring States Era", Yuri Pines; "L'art de gouverner", Han Fei; "Atomic habits", James Clear; "Napoléon joue de la Cornemuse dans un bus", Jean-Yves Ponce.</p>
+      </div>
+      <div class="page-section-label">Fiction highlights</div>
+      <div class="page-statement">
+        <p>Children of Time, Adrian Tchaikovsky; Mortal Engines series, Philip Reeve; Insignia trilogy, S.J. Kincaid; Harry Potter series, J.K. Rowling; How to Train Your Dragon series, Cressida Cowell; Spook's series, Joseph Delaney; Skulduggery Pleasant series, Derek Landy.</p>
+      </div>`,
+  },
+
+  // ── Japanese Self-Study (light) ─────────────────────────────────────────
+  japanese: {
+    eyebrow: 'Interests', title: 'Japanese Self-Study', theme: 'light',
+    body: () => `
+      <div class="page-section-label">What makes me tick</div>
+      <div class="page-statement">
+        <p>The stimulation of questioning the very building blocks of the way I define the concepts I use unconsciously in everyday life, and the satisfaction of seeing myself succeed at one of the few tasks I ever got passionate about. Added to my purism about understanding Japanese media without a translation.</p>
+      </div>
+      <div class="page-section-label">History</div>
+      <div class="page-statement">
+        <p>Japanese is nothing like the other European languages that I knew.</p>
+        <p>By the time I was 10 years old, I could fluently read, write, and speak in French, English, and Portuguese. In other words, I had an extremely big head. When I chose Japanese as an option in middle school, my thoughts were like this: "Japanese? This is going to be a walk in the park". I was so wrong.</p>
+        <p>That was the first time in my life struggling to learn a language. And only later did I realize that I wasn't talented at learning languages. Until then, I had just gotten lucky with good methods. I learned French, Portuguese and English the best way possible: immersion. And these languages share many roots, so knowing one helps learning the other two. As both immersion and transferability were lacking for japanese, I was equal to the rest of my classmates!</p>
+        <p>Since my last year of middle school, I really liked watching anime (with subtitles), and as a purist, I hate(d) translations. Therefore, for many of the episodes I watched, I made a point of looking up words and grammatical structures I didn't understand.</p>
+      </div>
+      <div class="page-section-label">Learning resources / methods</div>
+      <div class="box-grid">
+        <div class="info-box">
+          <div class="ib-head">Grammar</div>
+          <ul>
+            <li>Tofugu (most helpful)</li>
+            <li>Various websites</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Kanji</div>
+          <ul>
+            <li>Handwritten flashcards with spaced repetition</li>
+            <li>Mnemonics</li>
+            <li>"Les kanjis dans la tête", Yves Maniette (English equivalent: "Remembering the Kanji", James W. Heisig)</li>
+            <li>Wanikani website</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Practice</div>
+          <ul>
+            <li>Manga</li>
+            <li>Anime</li>
+            <li>Conversations</li>
+          </ul>
+        </div>
+        <div class="info-box">
+          <div class="ib-head">Dictionaries</div>
+          <ul>
+            <li>Takoboto</li>
+            <li>Yomiwa</li>
+          </ul>
+        </div>
+      </div>`,
+  },
+
+  // ── Language skill pages (light) ────────────────────────────────────────
+  english: {
+    eyebrow: 'Skills', title: 'English', theme: 'light',
+    body: () => `
+      <div class="page-statement">
+        <p>English is the first language I learned as a child, despite being born in Brazil and my parents being French and Brazilian. I lived in the UK between 1 and 4 years old, and after that managed to sharpen it thanks to bilingual schools (which happened to be a selling point for the most part, unfortunately), and continual exposure to English media (movies, series, books, and websites). Since coming to Bordeaux, I have integrated an English club, and a board games club with enough international variety to keep me stimulated.</p>
+      </div>`,
+  },
+
+  french: {
+    eyebrow: 'Skills', title: 'French', theme: 'light',
+    body: () => `<div class="page-statement placeholder"><p>[ Coming soon. ]</p></div>`,
+  },
+
+  portuguese: {
+    eyebrow: 'Skills', title: 'Portuguese', theme: 'light',
+    body: () => `
+      <div class="page-statement">
+        <p>I have learned Portuguese by living in Rio from 4 to 8 years old. I speak to my mother in Portuguese up to this day.</p>
+      </div>`,
+  },
+
+  japanese_l: {
+    eyebrow: 'Skills', title: 'Japanese', theme: 'light',
+    body: () => `
+      <div class="page-statement">
+        <p>See <span class="xlink" data-action="page" data-page="japanese">Japanese learning project</span>.</p>
+      </div>`,
+  },
+
+  spanish: {
+    eyebrow: 'Skills', title: 'Spanish', theme: 'light',
+    body: () => `
+      <div class="page-statement">
+        <p>My first exposure to spanish was in Rio, with a family who was friends with my mother. They had this Argentine comic series called "Gaturro". I used to borrow one every now and then, and was surprised by how much I could understand despite having never studied Spanish before (thanks to the Portuguese, of course). From middle school to high school, the Spanish classes that I took have allowed me to become not quite fluent, but more than able to hold a casual conversation.</p>
+      </div>`,
+  },
+};
+
+// ── Chronogram data ─────────────────────────────────────────────────────────
+const CHRONO_ENTRIES = [
+  { date:'Apr 2006',     place:'Rio de Janeiro', school:'Brazil',             detail:'Born on 9th April 2006, in Rio de Janeiro.' },
+  { date:'~2007',        place:'Mumbai',         school:'India',              detail:'Lived here for about a year as an infant.' },
+  { date:'2007 – 2010',  place:'Redhill',        school:'United Kingdom',     detail:'Mickelfield School. Ages ~1–4 — where English became my first language.' },
+  { date:'2010 – 2014',  place:'Rio de Janeiro', school:'Brazil',             detail:'British School. Ages 4–8 — where I learned Portuguese by living it.' },
+  { date:'2014 – 2016',  place:'Perpignan',      school:'France',             detail:'École Anatole France. Ages 8–10. Entered the local Conservatory for guitar.' },
+  { date:'2016 – 2022',  place:'Lyon',           school:'France',             detail:'Ombrosa multilingual school (ages 10–16), then Lycée Saint-Just (16–18).' },
+  { date:'2024 –',       place:'Bordeaux',       school:'France',             detail:'IUT de Bordeaux, Gradignan. EEIC — Electrical Engineering & Industrial Computing.' },
+];
+
+// ── Chronogram interaction: horizontal drag-to-scroll ───────────────────────
+function initChrono() {
+  const wrap  = document.getElementById('chrono-wrap');
+  if (!wrap) return;
+
+  let isDown = false, startX, scrollLeft, moved = false;
+  wrap.addEventListener('mousedown', e => {
+    isDown = true; moved = false; wrap.style.cursor = 'grabbing';
+    startX = e.pageX - wrap.offsetLeft;
+    scrollLeft = wrap.scrollLeft;
+  });
+  wrap.addEventListener('mouseleave', () => { isDown = false; wrap.style.cursor = 'grab'; });
+  wrap.addEventListener('mouseup',    () => { isDown = false; wrap.style.cursor = 'grab'; });
+  wrap.addEventListener('mousemove',  e => {
+    if (!isDown) return;
+    e.preventDefault();
+    moved = true;
+    const x = e.pageX - wrap.offsetLeft;
+    wrap.scrollLeft = scrollLeft - (x - startX) * 1.2;
+  });
+
+  // let the mouse wheel scroll horizontally too
+  wrap.addEventListener('wheel', e => {
+    if (e.deltaY !== 0) {
+      e.preventDefault();
+      wrap.scrollLeft += e.deltaY;
+    }
+  }, { passive: false });
+}
+
+
+
+function renderPageHTML(pageId) {
+  const p = PAGES[pageId];
+  const isLight = p.theme === 'light';
+  const pageClass = isLight ? 'page-light' : 'page-dark';
+  const cardClass = isLight ? 'page-card-light' : 'page-card';
+  const innerClass = p.wide ? 'page-inner-wide' : 'page-inner';
+  return `
+    <div class="${pageClass}">
+      <div class="${innerClass}">
+        <div class="${cardClass}">
+          <div class="page-eyebrow">${p.eyebrow}</div>
+          <h1 class="page-title">${p.title}</h1>
+          ${p.body()}
+        </div>
+      </div>
+    </div>`;
+}
+
+// Show content and trigger entrance animation
+function showPageContent(pageId) {
+  const p = PAGES[pageId];
+  const isLight = p.theme === 'light';
+  contentView.classList.remove('theme-dark', 'theme-light');
+  contentView.classList.add(isLight ? 'theme-light' : 'theme-dark');
+  contentView.innerHTML = renderPageHTML(pageId);
+  contentView.classList.add('visible');
+  contentView.scrollTop = 0;
+  currentPage = pageId;
+  bindPageLinks();
+  const pageEl = contentView.querySelector('.page-dark, .page-light');
+  const card   = contentView.querySelector('.page-card, .page-card-light');
+  requestAnimationFrame(() => {
+    pageEl.classList.add('in');
+    requestAnimationFrame(() => { card.classList.add('in'); });
+  });
+  if (p.onMount) setTimeout(() => p.onMount(), 60);
+}
+
+// Main entrance: wheel fade-out, page bg shift, card rise, and mini-wheel slide — all at once
+function openPage(pageId) {
+  if (!PAGES[pageId]) { console.log('No page yet for:', pageId); return; }
+  if (animating || inPage) return;
+  inPage = true;
+
+  // Wheel fades out
+  appEl.style.transition = 'opacity 0.6s ease';
+  appEl.style.opacity = '0';
+  appEl.style.pointerEvents = 'none';
+
+  // Content (bg + card) animates in simultaneously, layered above the fading wheel
+  showPageContent(pageId);
+
+  // Mini-wheel slides in from the top at the same time
+  drawMiniWheel();
+  miniWheel.style.display = 'block';
+  requestAnimationFrame(() => miniWheel.classList.add('in'));
+
+  // Once the wheel has fully faded, hide it so it can't catch clicks
+  setTimeout(() => { appEl.style.display = 'none'; }, 620);
+}
+
+// Return to the full wheel
+function closePage() {
+  if (!inPage) return;
+
+  // Fade the whole content-view out smoothly — no innerHTML wipe mid-transition
+  contentView.style.transition = 'opacity 0.6s ease';
+  contentView.style.opacity = '0';
+  miniWheel.classList.remove('in');
+
+  // Wheel begins fading back in simultaneously
+  appEl.style.display = 'flex';
+  appEl.style.pointerEvents = 'none';
+  requestAnimationFrame(() => {
+    appEl.style.transition = 'opacity 0.6s ease';
+    appEl.style.opacity = '1';
+  });
+
+  setTimeout(() => {
+    // Dark view fully faded — clean up
+    contentView.classList.remove('visible', 'theme-dark', 'theme-light');
+    contentView.innerHTML = '';
+    contentView.style.transition = '';
+    contentView.style.opacity = '';
+    miniWheel.style.display = 'none';
+    appEl.style.pointerEvents = 'auto';
+    currentPage = null;
+    inPage = false;
+  }, 600);
+}
+
+// Cross-link between pages — swap ONLY the card, dark bg stays put
+function crossLink(target) {
+  const card = contentView.querySelector('.page-card, .page-card-light');
+  const p = PAGES[target];
+  if (!card) { showPageContent(target); return; }
+
+  card.style.transition = 'opacity 0.36s ease, transform 0.36s ease';
+  card.classList.remove('in');
+
+  setTimeout(() => {
+    const isLight = p.theme === 'light';
+    // swap page wrapper class if theme differs
+    const pageEl = contentView.querySelector('.page-dark, .page-light');
+    if (pageEl) {
+      pageEl.className = isLight ? 'page-light in' : 'page-dark in';
+    }
+    contentView.classList.remove('theme-dark','theme-light');
+    contentView.classList.add(isLight ? 'theme-light' : 'theme-dark');
+    // update inner wrapper width to match target page
+    const innerEl = contentView.querySelector('.page-inner, .page-inner-wide');
+    if (innerEl) innerEl.className = p.wide ? 'page-inner-wide' : 'page-inner';
+    const newCardClass = isLight ? 'page-card-light' : 'page-card';
+    card.className = newCardClass;
+    card.innerHTML = `
+      <div class="page-eyebrow">${p.eyebrow}</div>
+      <h1 class="page-title">${p.title}</h1>
+      ${p.body()}`;
+    currentPage = target;
+    contentView.scrollTop = 0;
+    bindPageLinks();
+    requestAnimationFrame(() => card.classList.add('in'));
+    if (p.onMount) setTimeout(() => p.onMount(), 60);
+  }, 380);
+}
+
+function bindPageLinks() {
+  contentView.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.getAttribute('data-action');
+      if (action === 'home') closePage();
+      else if (action === 'page') crossLink(el.getAttribute('data-page'));
+    });
+  });
+}
+
+// ── Mini-wheel: a minimalist echo of the big wheel ──
+function drawMiniWheel() {
+  const mc = document.getElementById('mini-canvas');
+  const mctx = mc.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const S = 84;
+  mc.width = S * dpr; mc.height = S * dpr;
+  mc.style.width = S + 'px'; mc.style.height = S + 'px';
+  mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  mctx.clearRect(0, 0, S, S);
+
+  const mcx = S/2, mcy = S/2;
+  const rOut = S * 0.40, rIn = S * 0.17;
+  const n = TOP.length;
+  const sliceA = (Math.PI*2)/n;
+  const offset = -Math.PI/2;
+  const fills = ['#d4c5b0','#cbbdd8','#c6baa8','#b4c9be','#d8bdc2'];
+
+  for (let i=0;i<n;i++){
+    const a0=offset+i*sliceA, a1=offset+(i+1)*sliceA;
+    mctx.beginPath();
+    mctx.arc(mcx,mcy,rOut,a0,a1);
+    mctx.arc(mcx,mcy,rIn,a1,a0,true);
+    mctx.closePath();
+    mctx.fillStyle=fills[i%fills.length];
+    mctx.fill();
+  }
+  // blue spokes
+  mctx.strokeStyle='#a9c4d6'; mctx.lineWidth=1; mctx.lineCap='round';
+  for(let i=0;i<n;i++){
+    const a=offset+i*sliceA;
+    mctx.beginPath();
+    mctx.moveTo(mcx+rIn*Math.cos(a),mcy+rIn*Math.sin(a));
+    mctx.lineTo(mcx+rOut*Math.cos(a),mcy+rOut*Math.sin(a));
+    mctx.stroke();
+  }
+  mctx.beginPath(); mctx.arc(mcx,mcy,rOut,0,Math.PI*2); mctx.stroke();
+  mctx.beginPath(); mctx.arc(mcx,mcy,rIn,0,Math.PI*2); mctx.stroke();
+}
+
+miniWheel.addEventListener('click', closePage);
+
+
+canvas.addEventListener('click', e => {
+  if (animating) return;
+  const r = canvas.getBoundingClientRect();
+  const idx = angleToIndex(e.clientX - r.left - cx, e.clientY - r.top - cy);
+  if (idx < 0) return;
+  const sections = getSections();
+  const clicked = sections[idx];
+  if (!clicked) return;
+
+  if (level === 'top') {
+    if (SUBS[clicked.id]) {
+      const fromSecs = [...TOP];
+      const toSecs = SUBS[clicked.id];
+      level = 'sub'; parent = clicked.id; animating = true; hovered = -1;
+      anim = { fromSecs, toSecs, startT: performance.now(), dur: 420, fromTop: true, toTop: false };
+      updateUI();
+    } else {
+      openPage(clicked.id);
+    }
+  } else {
+    openPage(clicked.id);
+  }
+});
+
+document.getElementById('back-btn').addEventListener('click', () => {
+  if (animating) return;
+  const fromSecs = [...getSections()];
+  const toSecs = [...TOP];
+  level = 'top'; parent = null; animating = true; hovered = -1;
+  anim = { fromSecs, toSecs, startT: performance.now(), dur: 420, fromTop: false, toTop: true };
+  updateUI();
+});
+
+function updateUI() {
+  const hint = document.getElementById('hint');
+  const backBtn = document.getElementById('back-btn');
+  const centerText = document.getElementById('center-text');
+
+  if (level === 'top') {
+    hint.style.display = 'block';
+    backBtn.style.display = 'none';
+    centerText.textContent = 'What would you like to know?';
+  } else {
+    hint.style.display = 'none';
+    backBtn.style.display = 'block';
+    centerText.textContent = TOP_LABEL[parent] || '';
+  }
+}
+
+function applySizes() {
+  const centerText = document.getElementById('center-text');
+  const centerLabel = document.getElementById('center-label');
+  const hint = document.getElementById('hint');
+
+  centerText.style.fontSize = SIZE * 0.032 + 'px';
+  centerLabel.style.width = (R_INNER * 1.7) + 'px';
+
+  hint.style.fontSize = SIZE * 0.024 + 'px';
+  const canvasTop = (window.innerHeight - SIZE) / 2;
+  hint.style.top = (canvasTop + cy + R_OUTER + TOOTH_H + SIZE * 0.045) + 'px';
+}
+applySizes();
+</script>
+</body>
+</html>
