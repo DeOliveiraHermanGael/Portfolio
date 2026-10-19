@@ -512,9 +512,22 @@
   #mini-wheel canvas { display: block; margin: 0 auto; }
   #mini-wheel .mw-label { display: none; }
 
+
+  /* ── Homepage: golden spiral ── */
+  #home-spiral { position: fixed; inset: 0; top: 0; left: 0; transform: none; z-index: 90; display: block; cursor: pointer; background: transparent; }
+  body.home-active #app { opacity: 0; pointer-events: none; }
+  #home-hint {
+    position: fixed; left: 50%; transform: translate(-50%, -50%); z-index: 91;
+    color: #8a7a6a; font-weight: 300; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap;
+    pointer-events: none; opacity: 0; transition: opacity 0.6s ease;
+  }
+  #home-hint.in { opacity: 1; animation: homepulse 2.8s ease-in-out 0.6s infinite; }
+  @keyframes homepulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 </style>
 </head>
-<body>
+<body class="home-active">
+<canvas id="home-spiral"></canvas>
+<div id="home-hint">Click to enter</div>
 <div id="app">
   <canvas id="wheel"></canvas>
   <div id="center-label">
@@ -1459,6 +1472,445 @@ function applySizes() {
   hint.style.top = (canvasTop + cy + R_OUTER + TOOTH_H + SIZE * 0.045) + 'px';
 }
 applySizes();
+</script>
+
+<!-- ════════ Homepage: golden spiral (self-contained, runs before the wheel) ════════ -->
+<script>
+(() => {
+
+// ════════ Golden spiral homepage — geometry + drawing ════════
+const PHI = (1 + Math.sqrt(5)) / 2;
+const B = Math.log(PHI) / (Math.PI / 2);      // radius × φ every quarter turn
+const TOOTH_RATIO = 0.112;                    // wheel: TOOTH_H / R_OUTER
+const N_TEETH = 32;                           // wheel: 32 teeth per turn
+const SPIRAL_ROT = 0.17453;                   // fixed orientation
+const TH1 = 3.5 * 2 * Math.PI;                // r = 1 here (composition reference)
+const TH_S = TH1 - 4 * Math.PI + 0.3;         // the spiral's inner tip, where it joins the wheel
+const Q = Math.PI / 2;
+const FILLS = ['#d4c5b0','#cbbdd8','#c6baa8','#b4c9be','#d8bdc2'];  // wheel palette
+const BLUE = '#a9c4d6', BLUE_SOFT = '#bcd2e0', BG = '#f5f0e8';
+const TEETH_TINT = 'rgba(160,145,125,0.16)';
+const WHEEL_HOLE = 0.155 / 0.375;             // wheel: R_INNER / R_OUTER
+
+const rad = th => Math.exp(B * (th - TH1));
+const innerRad = th => rad(th) / Math.sqrt(PHI);
+const thOfR = r => TH1 + Math.log(r) / B;
+const fillFor = i => FILLS[((i % 5) + 5) % 5];
+
+// trapezoid tooth profile, identical to the wheel's drawCogRing
+function toothProfile(angle) {
+  const pitch = 2 * Math.PI / N_TEETH;
+  const p = (((angle + Math.PI / 2) % pitch) + pitch) % pitch / pitch;
+  if (p < 0.38) return p / 0.38;
+  if (p < 0.62) return 1;
+  return (1 - p) / 0.38;
+}
+
+function computeFit(w, h, margin) {
+  const rot = SPIRAL_ROT;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let th = TH1 - 2.2 * Math.PI; th <= TH1; th += 0.01) {
+    const r = rad(th) * (1 + TOOTH_RATIO);
+    const x = r * Math.cos(th + rot), y = r * Math.sin(th + rot);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const s = Math.min((w * margin) / (maxX - minX), (h * margin) / (maxY - minY));
+  const cx = w / 2 - s * (minX + maxX) / 2, cy = h / 2 - s * (minY + maxY) / 2;
+  return { rot, s, cx, cy, bottom: cy + s * maxY };
+}
+
+// first angle past TH1 where the whole band (teeth included) is off-screen
+function tailEnd(fit, W, H) {
+  const { rot, s, cx, cy } = fit;
+  for (let th = TH1; th < TH1 + 2 * Math.PI; th += 0.02) {
+    let out = true;
+    for (let k = 0; k <= 8 && out; k++) {
+      const r = innerRad(th) + (rad(th) * (1 + TOOTH_RATIO) - innerRad(th)) * k / 8;
+      const x = cx + s * r * Math.cos(th + rot), y = cy + s * r * Math.sin(th + rot);
+      if (x > -6 && x < W + 6 && y > -6 && y < H + 6) out = false;
+    }
+    if (out) return th + 0.15;
+  }
+  return TH1 + 2 * Math.PI;
+}
+
+// spiral band between angles a and b
+function drawBand(ctx, fit, a, b) {
+  if (b - a < 0.004) return;
+  const { rot, s, cx, cy } = fit;
+  const P = (th, r) => [cx + s * r * Math.cos(th + rot), cy + s * r * Math.sin(th + rot)];
+  const step = 0.01;
+  const trace = (from, to, fn, dir, first) => {
+    for (let th = from; ; th += dir * step) {
+      const t = dir > 0 ? Math.min(th, to) : Math.max(th, to);
+      const [x, y] = P(t, fn(t));
+      first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false;
+      if (t === to) break;
+    }
+  };
+  // faint cog teeth behind the band
+  ctx.beginPath();
+  trace(a, b, t => rad(t) * (1 + TOOTH_RATIO * toothProfile(t + rot)), 1, true);
+  trace(b, a, innerRad, -1, false);
+  ctx.closePath(); ctx.fillStyle = TEETH_TINT; ctx.fill();
+  // coloured sections, one per quarter turn
+  for (let i = Math.floor(a / Q); i * Q < b; i++) {
+    const sa = Math.max(i * Q, a), sb = Math.min((i + 1) * Q, b);
+    if (sb <= sa) continue;
+    ctx.beginPath();
+    trace(sa, sb, rad, 1, true); trace(sb, sa, innerRad, -1, false);
+    ctx.closePath(); ctx.fillStyle = fillFor(i); ctx.fill();
+  }
+  // blue separators (the wheel's spokes)
+  ctx.strokeStyle = BLUE; ctx.lineCap = 'butt';
+  for (let i = Math.floor(a / Q) + 1; i * Q < b; i++) {
+    const th = i * Q; if (th <= a) continue;
+    const [x1, y1] = P(th, innerRad(th)), [x2, y2] = P(th, rad(th));
+    ctx.lineWidth = Math.min(3.5, Math.max(0.6, s * rad(th) * 0.012));
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  }
+  // soft-blue rims
+  ctx.strokeStyle = BLUE_SOFT; ctx.lineJoin = 'round';
+  for (const edge of [rad, innerRad]) {
+    for (let th = a; th < b; th += 0.25) {
+      const e = Math.min(th + 0.25 + step, b);
+      ctx.beginPath(); trace(th, e, edge, 1, true);
+      ctx.lineWidth = Math.min(2.5, Math.max(0.5, s * edge(th) * 0.006));
+      ctx.stroke();
+    }
+  }
+}
+
+// the navigation wheel (no labels) — centre (x,y), outer radius R,
+// sweep 0..1 reveals it backwards from startAngle; opaque=true hides whatever is under it
+function drawWheel(ctx, x, y, R, sweep, startAngle, opaque) {
+  if (sweep <= 0 || R <= 0) return;
+  const rI = R * WHEEL_HOLE, n = 5, slice = 2 * Math.PI / n, off = -Math.PI / 2;
+  ctx.save();
+  if (sweep < 1) {   // reveal only the swept wedge
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.arc(x, y, R * 2, startAngle - sweep * 2 * Math.PI, startAngle);
+    ctx.closePath(); ctx.clip();
+  }
+  const teeth = () => {
+    ctx.beginPath();
+    for (let a = 0; a <= 2 * Math.PI + 1e-9; a += 0.004) {
+      const r = R * (1 + TOOTH_RATIO * toothProfile(a));
+      const px = x + r * Math.cos(a), py = y + r * Math.sin(a);
+      a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  };
+  if (opaque) { teeth(); ctx.fillStyle = BG; ctx.fill(); }
+  teeth(); ctx.fillStyle = TEETH_TINT; ctx.fill();
+  for (let i = 0; i < n; i++) {
+    ctx.beginPath();
+    ctx.arc(x, y, R, off + i * slice, off + (i + 1) * slice);
+    ctx.arc(x, y, rI, off + (i + 1) * slice, off + i * slice, true);
+    ctx.closePath(); ctx.fillStyle = FILLS[i]; ctx.fill();
+  }
+  ctx.strokeStyle = BLUE; ctx.lineWidth = Math.max(0.6, R * 0.012); ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const a = off + i * slice;
+    ctx.beginPath();
+    ctx.moveTo(x + rI * Math.cos(a), y + rI * Math.sin(a));
+    ctx.lineTo(x + R * Math.cos(a), y + R * Math.sin(a));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = BLUE_SOFT; ctx.lineWidth = Math.max(0.5, R * 0.0093);
+  ctx.beginPath(); ctx.arc(x, y, R, 0, 2 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, rI, 0, 2 * Math.PI); ctx.stroke();
+  ctx.restore();
+}
+
+// title laid along the inner edge of the big turn, on the open side, upright
+function layoutPathText(ctx, fit, text, fontPx) {
+  const { rot, s, cx, cy } = fit;
+  const gap = fontPx * 0.55;   // distance between the band's inner edge and the baseline
+  const P = th => {
+    const r = s * innerRad(th) - gap;
+    return [cx + r * Math.cos(th + rot), cy + r * Math.sin(th + rot)];
+  };
+  // centre the text on the lowest point of that edge
+  let thC = TH1 - 2 * Math.PI, best = -Infinity;
+  for (let th = TH1 - 2 * Math.PI; th <= TH1; th += 0.004) {
+    const y = P(th)[1]; if (y > best) { best = y; thC = th; }
+  }
+  const pts = [];
+  for (let th = thC - 1.6; th <= thC + 1.6; th += 0.003) pts.push(P(th));
+  if (P(thC + 0.01)[0] < P(thC - 0.01)[0]) pts.reverse();   // read left → right
+  const L = [0];
+  for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const mid = L[L.length - 1] / 2;
+  ctx.font = `400 ${fontPx}px 'Cormorant Garamond', Georgia, serif`;
+  const track = fontPx * 0.04;
+  const chars = [...text], widths = chars.map(c => ctx.measureText(c).width);
+  const total = widths.reduce((a, b) => a + b, 0) + track * (chars.length - 1);
+  let pos = mid - total / 2, j = 1;
+  return chars.map((ch, i) => {
+    const at = pos + widths[i] / 2; pos += widths[i] + track;
+    while (j < L.length - 1 && L[j] < at) j++;
+    const f = (at - L[j - 1]) / (L[j] - L[j - 1] || 1);
+    const [x0, y0] = pts[j - 1], [x1, y1] = pts[j];
+    return { ch, x: x0 + (x1 - x0) * f, y: y0 + (y1 - y0) * f, ang: Math.atan2(y1 - y0, x1 - x0) };
+  });
+}
+
+function drawPathText(ctx, glyphs, fontPx, revealMs) {
+  ctx.save();
+  ctx.font = `400 ${fontPx}px 'Cormorant Garamond', Georgia, serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = '#5a4a3a';
+  glyphs.forEach((g, i) => {
+    const a = revealMs === Infinity ? 1 : Math.max(0, Math.min(1, (revealMs - i * 28) / 420));
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha *= a;
+    ctx.translate(g.x, g.y); ctx.rotate(g.ang); ctx.fillText(g.ch, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// ════════ Spiral → wheel morph ════════
+// Every point of the band is described by u ∈ [0,1] (inner tip → off-screen end).
+// t: 0 = golden spiral, 1 = thin closed circle. k: 0 = thin circle, 1 = full wheel.
+const W_THIN = 4;               // ring thickness (px) at the moment the ends join
+const N_SAMPLES = 2400;
+const WHEEL_LABELS = ['Overview','Education','Projects','Skills','Interests'];
+const WHEEL_TEXT = ['#4a3520','#3a2550','#3a2810','#183025','#4a2030'];
+
+function siteWheel(W, H) {                    // exactly the navigation wheel's geometry
+  const SIZE = Math.min(W, H) * 0.86;
+  return { SIZE, x: W / 2, y: H / 2, R: SIZE * 0.375, rI: SIZE * 0.155 };
+}
+
+function spiralStart(fit) {                   // inner tip: where the band is 1.5px wide
+  let th = 0;
+  while (fit.s * rad(th) * (1 - 1 / Math.sqrt(PHI)) < 1.5) th += 0.01;
+  return th;
+}
+
+// geometry of the band for a given (t, k)
+function bandGeometry(L, t, k) {
+  const { fit, th0, thMax, wheel } = L;
+  const e = easeInOut(t), ew = easeInOut(Math.min(1, t / 0.8));   // thinning runs a little ahead
+  const cx = fit.cx + (wheel.x - fit.cx) * e, cy = fit.cy + (wheel.y - fit.cy) * e;
+  const rMid = (wheel.R + wheel.rI) / 2;
+  const wThick = wheel.R - wheel.rI;
+  const wTarget = W_THIN + (wThick - W_THIN) * easeInOut(k);
+  const aMidS = (th0 + thMax) / 2 + fit.rot;          // the middle of the band doesn't spin
+  const pts = [];
+  for (let i = 0; i <= N_SAMPLES; i++) {
+    const u = i / N_SAMPLES, th = th0 + u * (thMax - th0);
+    const rS = fit.s * rad(th), rcS = rS * (1 + 1 / Math.sqrt(PHI)) / 2, wS = rS * (1 - 1 / Math.sqrt(PHI));
+    const aS = th + fit.rot, aC = aMidS + (u - 0.5) * 2 * Math.PI;
+    const a = aS + (aC - aS) * e;
+    const rc = Math.exp(Math.log(rcS) + (Math.log(rMid) - Math.log(rcS)) * e);
+    const w = t < 1 ? Math.exp(Math.log(wS) + (Math.log(W_THIN) - Math.log(wS)) * ew) : wTarget;
+    const rIn = rc - w / 2, rOut = rc + w / 2;
+    const tooth = Math.min(TOOTH_RATIO * rOut, 0.53 * Math.max(0, w - W_THIN * 2)) * toothProfile(a);   // teeth vanish while the band is a thread
+    const c = Math.cos(a), s = Math.sin(a);
+    pts.push({ th, ix: cx + rIn * c, iy: cy + rIn * s, ox: cx + rOut * c, oy: cy + rOut * s,
+               tx: cx + (rOut + tooth) * c, ty: cy + (rOut + tooth) * s, rOut, rIn });
+  }
+  return { pts, cx, cy, rMid, w: t < 1 ? null : wTarget };
+}
+
+function drawMorph(ctx, L, t, k, alpha) {
+  const g = bandGeometry(L, t, k), P = g.pts, n = P.length;
+  ctx.save(); ctx.globalAlpha = alpha;
+  // faint cog teeth
+  ctx.beginPath();
+  P.forEach((p, i) => i ? ctx.lineTo(p.tx, p.ty) : ctx.moveTo(p.tx, p.ty));
+  for (let i = n - 1; i >= 0; i--) ctx.lineTo(P[i].ix, P[i].iy);
+  ctx.closePath(); ctx.fillStyle = TEETH_TINT; ctx.fill();
+
+  // spiral sections (one per quarter turn) — their colours fade as the band thins to a line
+  const secAlpha = k > 0 ? 0 : 1 - easeInOut(Math.min(1, t / 0.8));
+  if (secAlpha > 0) {
+    ctx.save(); ctx.globalAlpha = alpha * secAlpha;
+    let start = 0;
+    for (let i = 1; i <= n; i++) {
+      const sec = i < n ? Math.floor(P[i].th / Q) : null;
+      if (i === n || sec !== Math.floor(P[start].th / Q)) {
+        const end = Math.min(i, n - 1);
+        ctx.beginPath();
+        for (let j = start; j <= end; j++) j === start ? ctx.moveTo(P[j].ox, P[j].oy) : ctx.lineTo(P[j].ox, P[j].oy);
+        for (let j = end; j >= start; j--) ctx.lineTo(P[j].ix, P[j].iy);
+        ctx.closePath(); ctx.fillStyle = fillFor(Math.floor(P[start].th / Q)); ctx.fill();
+        // separator at the boundary
+        if (i < n) {
+          ctx.strokeStyle = BLUE; ctx.lineCap = 'butt';
+          ctx.lineWidth = Math.min(3.5, Math.max(0.6, P[i].rOut * 0.012));
+          ctx.beginPath(); ctx.moveTo(P[i].ix, P[i].iy); ctx.lineTo(P[i].ox, P[i].oy); ctx.stroke();
+        }
+        start = i;
+      }
+    }
+    ctx.restore();
+  }
+  // as the colours fade, the slimming band becomes a solid pastel-blue thread
+  const thread = Math.min(1, t / 0.8) * (1 - easeInOut(k));
+  if (thread > 0 && secAlpha < 1) {
+    ctx.save(); ctx.globalAlpha = alpha * easeInOut(thread) * (1 - secAlpha * 0.5);
+    ctx.beginPath();
+    P.forEach((p, i) => i ? ctx.lineTo(p.ox, p.oy) : ctx.moveTo(p.ox, p.oy));
+    for (let i = n - 1; i >= 0; i--) ctx.lineTo(P[i].ix, P[i].iy);
+    ctx.closePath(); ctx.fillStyle = BLUE_SOFT; ctx.fill();
+    ctx.restore();
+  }
+  // the wheel's own five sections appear as the ring thickens
+  if (k > 0) {
+    // the wheel's centre carries the same faint tint as on the navigation wheel
+    ctx.save(); ctx.globalAlpha = alpha * easeInOut(k);
+    ctx.beginPath(); ctx.arc(g.cx, g.cy, g.rMid - g.w / 2, 0, 2 * Math.PI);
+    ctx.fillStyle = TEETH_TINT; ctx.fill(); ctx.restore();
+    const wa = 1, rO = g.rMid + g.w / 2, rI = g.rMid - g.w / 2;
+    const sl = 2 * Math.PI / 5, off = -Math.PI / 2;
+    ctx.save(); ctx.globalAlpha = alpha * wa;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.arc(g.cx, g.cy, rO, off + i * sl, off + (i + 1) * sl);
+      ctx.arc(g.cx, g.cy, rI, off + (i + 1) * sl, off + i * sl, true);
+      ctx.closePath(); ctx.fillStyle = FILLS[i]; ctx.fill();
+    }
+    ctx.strokeStyle = BLUE; ctx.lineWidth = Math.max(0.6, rO * 0.012); ctx.lineCap = 'round';
+    for (let i = 0; i < 5; i++) {
+      const a = off + i * sl;
+      ctx.beginPath(); ctx.moveTo(g.cx + rI * Math.cos(a), g.cy + rI * Math.sin(a));
+      ctx.lineTo(g.cx + rO * Math.cos(a), g.cy + rO * Math.sin(a)); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // soft-blue rims along both edges
+  ctx.strokeStyle = BLUE_SOFT; ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+  for (const side of ['o', 'i']) {
+    for (let a = 0; a < n - 1; a += 24) {
+      const b = Math.min(a + 25, n - 1);
+      ctx.beginPath();
+      for (let j = a; j <= b; j++) j === a ? ctx.moveTo(P[j][side + 'x'], P[j][side + 'y']) : ctx.lineTo(P[j][side + 'x'], P[j][side + 'y']);
+      const r = side === 'o' ? P[a].rOut : P[a].rIn, ek = easeInOut(k);
+      ctx.lineWidth = Math.min(2.5, Math.max(0.5, r * 0.006)) * (1 - ek) + (g.rMid + (g.w || 0) / 2) * 0.0093 * ek;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// the wheel's labels, drawn exactly like the navigation wheel draws them
+function drawWheelLabels(ctx, wheel, alpha) {
+  const n = 5, sl = 2 * Math.PI / n, off = -Math.PI / 2;
+  const labelR = (wheel.rI + wheel.R) * 0.525;
+  const fs = Math.min(wheel.SIZE * 0.027, wheel.SIZE * 0.9 / (n * 3));
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.font = `400 ${fs}px 'Jost', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < n; i++) {
+    const mid = off + (i + 0.5) * sl;
+    ctx.save();
+    ctx.translate(wheel.x + labelR * Math.cos(mid), wheel.y + labelR * Math.sin(mid));
+    let rot = mid + Math.PI / 2; if (mid > 0 && mid < Math.PI) rot += Math.PI;
+    ctx.rotate(rot); ctx.fillStyle = WHEEL_TEXT[i]; ctx.fillText(WHEEL_LABELS[i], 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+
+
+// ════════ Homepage: golden spiral that becomes the wheel ════════
+const canvas = document.getElementById('home-spiral');
+const ctx = canvas.getContext('2d');
+const hint = document.getElementById('home-hint');
+const TITLE = "Gaël De Oliveira Herman's portfolio";
+const T_INTRO = 700, T_UNCOIL = 1900, T_PAUSE = 120, T_THICK = 750, T_HANDOFF = 550;
+const easeInOut = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const clamp01 = t => Math.max(0, Math.min(1, t));
+let W, H, L = {}, phase = 'load', t0 = null;
+
+function layout() {
+  const dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const reserve = Math.max(70, Math.min(130, H * 0.12));
+  const fit = computeFit(W, H - reserve, 0.86);
+  const fontPx = fit.s * 0.034;
+  L = { fit, fontPx, wheel: siteWheel(W, H), th0: spiralStart(fit), thMax: tailEnd(fit, W, H),
+        glyphs: layoutPathText(ctx, fit, TITLE, fontPx) };
+  hint.style.fontSize = Math.max(14, Math.min(W, H) * 0.022) + 'px';
+  hint.style.top = (fit.bottom + (H - fit.bottom) / 2) + 'px';
+}
+
+function drawHome(titleReveal, alpha) {
+  drawMorph(ctx, L, 0, 0, alpha);
+  ctx.save(); ctx.globalAlpha = alpha;
+  drawPathText(ctx, L.glyphs, L.fontPx, titleReveal);
+  ctx.restore();
+}
+
+// the wheel's opaque parts only — its translucent teeth and centre tint are already
+// on the real navigation wheel underneath, so nothing doubles up during the handoff
+function drawWheelSolid() {
+  const { x, y, R } = L.wheel, rI = R * WHEEL_HOLE, sl = 2 * Math.PI / 5, off = -Math.PI / 2;
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.arc(x, y, R, off + i * sl, off + (i + 1) * sl);
+    ctx.arc(x, y, rI, off + (i + 1) * sl, off + i * sl, true);
+    ctx.closePath(); ctx.fillStyle = FILLS[i]; ctx.fill();
+  }
+  ctx.strokeStyle = BLUE; ctx.lineWidth = R * 0.012; ctx.lineCap = 'round';
+  for (let i = 0; i < 5; i++) {
+    const a = off + i * sl;
+    ctx.beginPath(); ctx.moveTo(x + rI * Math.cos(a), y + rI * Math.sin(a));
+    ctx.lineTo(x + R * Math.cos(a), y + R * Math.sin(a)); ctx.stroke();
+  }
+  ctx.strokeStyle = BLUE_SOFT; ctx.lineWidth = R * 0.0093;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, 2 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, rI, 0, 2 * Math.PI); ctx.stroke();
+}
+
+function render(ts) {
+  if (t0 === null) t0 = ts;
+  const el = ts - t0;
+  ctx.clearRect(0, 0, W, H);
+  if (phase === 'load') {
+    drawHome(Math.max(0, el - T_INTRO * 0.6), easeInOut(clamp01(el / T_INTRO)));
+    if (el > T_INTRO * 0.6 + L.glyphs.length * 28 + 420) { phase = 'home'; hint.classList.add('in'); return; }
+  } else if (phase === 'morph') {
+    const t = clamp01(el / T_UNCOIL);
+    const k = clamp01((el - T_UNCOIL - T_PAUSE) / T_THICK);
+    if (k < 1) {
+      drawMorph(ctx, L, t, k, 1);
+      const ta = 1 - easeInOut(clamp01(el / 450));
+      if (ta > 0) { ctx.save(); ctx.globalAlpha = ta; drawPathText(ctx, L.glyphs, L.fontPx, Infinity); ctx.restore(); }
+    } else {
+      // handoff: the real wheel appears underneath, this layer fades away revealing its text
+      drawWheelSolid();
+      phase = 'handoff';
+      document.body.classList.remove('home-active');
+      canvas.style.transition = `opacity ${T_HANDOFF}ms ease`;
+      canvas.style.opacity = '0';
+      setTimeout(() => { canvas.style.display = 'none'; hint.style.display = 'none'; }, T_HANDOFF + 50);
+      return;
+    }
+  }
+  requestAnimationFrame(render);
+}
+function start(p) { phase = p; t0 = null; requestAnimationFrame(render); }
+
+window.addEventListener('resize', () => {
+  if (phase === 'handoff') return;
+  layout();
+  if (phase === 'home') { ctx.clearRect(0, 0, W, H); drawHome(Infinity, 1); }
+});
+canvas.addEventListener('click', () => {
+  if (phase === 'home') { hint.classList.remove('in'); start('morph'); }
+});
+
+(document.fonts ? Promise.all([document.fonts.load("400 30px 'Cormorant Garamond'"), document.fonts.load("400 20px 'Jost'")]).then(() => document.fonts.ready) : Promise.resolve())
+  .catch(() => {}).then(() => { layout(); start('load'); });
+})();
 </script>
 </body>
 </html>
